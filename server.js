@@ -45,6 +45,30 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '128kb' }));
 app.set('io', io);
 
+// SERVICE INFORMATION
+app.get('/', (req, res) => {
+  res.status(200).json({
+    service: 'praying-for-others-backend',
+    status: 'running',
+  });
+});
+
+// READINESS CHECK
+// Checks the connection state, not a live database query.
+app.get('/health', (req, res) => {
+  const databaseConnected =
+    mongoose.connection.readyState === 1;
+
+  res.set('Cache-Control', 'no-store');
+
+  return res.status(databaseConnected ? 200 : 503).json({
+    status: databaseConnected ? 'ok' : 'unavailable',
+    database: databaseConnected
+      ? 'connected'
+      : 'disconnected',
+  });
+});
+
 // HTTP ROUTES
 app.use('/api/prayers', require('./routes/prayerRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
@@ -363,7 +387,8 @@ io.on('connection', (socket) => {
         query.sender = user.id;
       }
 
-      const deleted = await Message.findOneAndDelete(query);
+      const deleted =
+        await Message.findOneAndDelete(query);
 
       if (!deleted) {
         throw actionError(
